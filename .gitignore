@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+test-results
+playwright-report
+qa/e2e/storage-states/*.json
+!qa/e2e/storage-states/.gitkeep
 
 # Editor directories and files
 .vscode/*
