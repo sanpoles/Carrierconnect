@@ -1,0 +1,127 @@
+.engagement-entitlement-panel {
+  background: #f8fbff;
+  border: 1px solid #dbe8f5;
+  border-radius: 0.85rem;
+  display: grid;
+  gap: 0.85rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.engagement-entitlement-panel.locked {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.engagement-entitlement-panel.warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.engagement-entitlement-header {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.engagement-entitlement-header strong {
+  color: #102a56;
+  font-size: 0.92rem;
+}
+
+.engagement-entitlement-badge {
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  padding: 0.32rem 0.6rem;
+  text-transform: uppercase;
+}
+
+.engagement-entitlement-badge.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.engagement-entitlement-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.engagement-entitlement-badge.locked {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.engagement-entitlement-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.engagement-entitlement-grid span {
+  color: #64748b;
+  display: grid;
+  font-size: 0.7rem;
+  font-weight: 800;
+  gap: 0.25rem;
+}
+
+.engagement-entitlement-grid strong {
+  color: #102a56;
+  font-size: 1.05rem;
+}
+
+.engagement-readonly-message {
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.message-composer textarea:disabled,
+.message-composer button:disabled,
+.small-primary-button:disabled,
+.complete-session-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.message-composer textarea:disabled {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.readonly-action-note {
+  color: #64748b;
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin-top: 0.55rem;
+}
+
+.session-readonly-note {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.55rem;
+  color: #64748b;
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.join-session-button.disabled-link {
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .engagement-entitlement-grid {
+    grid-template-columns: 1fr;
+  }
+}

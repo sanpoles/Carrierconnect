@@ -1,0 +1,26 @@
+{
+  "name": "careerconnect-backend",
+  "version": "1.0.0",
+  "description": "CareerConnect / Career Support Portal backend API",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "db:seed-admin": "node scripts/create-admin.js",
+    "db:seed-demo-counsellor": "node scripts/create-demo-counsellor.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.5",
+    "pg": "^8.16.3",
+    "socket.io": "^4.8.3",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

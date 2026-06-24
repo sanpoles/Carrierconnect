@@ -1,0 +1,478 @@
+
+.internal-notes-panel {
+  border: 1px solid #d7dce8;
+  border-radius: 14px;
+  background: #fbfcff;
+  padding: 18px;
+  margin: 18px 0;
+}
+
+.internal-notes-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4e8f1;
+}
+
+.internal-notes-panel > header p,
+.internal-notes-panel > header span:first-child {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.internal-notes-panel h4 { margin: 0; }
+
+.internal-notes-panel > header > span {
+  font-size: 0.82rem;
+  color: #596579;
+  text-align: right;
+}
+
+.internal-notes-explainer { color: #596579; margin: 12px 0; }
+
+.internal-notes-list {
+  display: grid;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.internal-notes-list article {
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #e2e7f0;
+}
+
+.internal-note-from-admin { background: #f5f8ff; }
+.internal-note-from-counsellor { background: #f7fbf7; }
+
+.internal-notes-list strong,
+.internal-notes-list small { display: block; }
+.internal-notes-list p { margin: 6px 0; white-space: pre-wrap; }
+.internal-notes-list small { color: #6b7280; }
+
+.internal-note-composer { display: grid; gap: 10px; margin-top: 14px; }
+.internal-note-composer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 84px;
+  padding: 10px;
+  border: 1px solid #cfd7e5;
+  border-radius: 9px;
+  font: inherit;
+}
+.internal-note-composer button { justify-self: start; }
+.internal-notes-assignment-warning {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff8e7;
+  color: #805b00;
+}
+
+@media (max-width: 700px) {
+  .internal-notes-panel > header { flex-direction: column; }
+  .internal-notes-panel > header > span { text-align: left; }
+}
+
+
+/*
+  Admin request drawer: these rules intentionally use the exact drawer selector
+  to avoid generic .active rules elsewhere in the application suppressing tabs.
+*/
+.admin-detail-drawer .admin-detail-tabs {
+  display: flex !important;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 12px 16px;
+  margin: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #d7dce8;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+.admin-detail-drawer .admin-detail-tabs > button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #52627a;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.admin-detail-drawer .admin-detail-tabs > button.active {
+  border-color: #bfd1ff;
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.admin-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  position: relative;
+}
+
+.admin-notification-area {
+  position: relative;
+}
+
+.admin-notification-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #23334d;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-notification-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #c81e1e;
+  color: #ffffff;
+  font-size: 0.73rem;
+  line-height: 1;
+}
+
+.admin-notification-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(390px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid #d7dce8;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(31, 45, 73, 0.16);
+}
+
+.admin-notification-panel-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #e5e9f1;
+}
+
+.admin-notification-panel-header strong,
+.admin-notification-panel-header span {
+  display: block;
+}
+
+.admin-notification-panel-header span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.admin-notification-list {
+  max-height: 390px;
+  overflow-y: auto;
+}
+
+.admin-notification-item {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 13px 16px;
+  border: 0;
+  border-bottom: 1px solid #edf0f5;
+  background: #ffffff;
+  color: #23334d;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-notification-item:hover {
+  background: #f7f9fd;
+}
+
+.admin-notification-item.is-unread {
+  background: #eef4ff;
+}
+
+.admin-notification-item strong,
+.admin-notification-item span,
+.admin-notification-item small {
+  display: block;
+}
+
+.admin-notification-item span {
+  color: #52627a;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.admin-notification-item small {
+  color: #7b8798;
+  font-size: 0.76rem;
+}
+
+.admin-notification-empty {
+  margin: 0;
+  padding: 18px 16px;
+  color: #64748b;
+}
+
+.admin-message-attention {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff4e6;
+  color: #a14a00;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .admin-heading-actions {
+    align-items: stretch;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .admin-notification-panel {
+    right: auto;
+    left: 0;
+  }
+}
+
+
+/*
+  Stable admin request-drawer layout.
+  Keep one vertical scrollbar: the drawer itself. Thread lists expand naturally.
+*/
+.admin-detail-drawer .admin-detail-tabs {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  min-height: 58px !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  background: #ffffff !important;
+  border-top: 1px solid #d7dce8 !important;
+  border-bottom: 1px solid #d7dce8 !important;
+  white-space: nowrap !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.admin-detail-drawer .admin-detail-tabs > button,
+.admin-detail-drawer .admin-detail-tabs > button.active {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: max-content !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  box-sizing: border-box !important;
+  padding: 7px 11px !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  color: #334155 !important;
+  font-family: inherit !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  letter-spacing: normal !important;
+  text-indent: 0 !important;
+  white-space: nowrap !important;
+}
+
+.admin-detail-drawer .admin-detail-tabs > button.active {
+  color: #1d4ed8 !important;
+  border: 1px solid #bfd1ff !important;
+  background: #eef4ff !important;
+}
+
+
+/* Request-row operational alerts. */
+.admin-request-action-cell {
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+
+.admin-request-alerts {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.admin-request-alert {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.admin-request-alert.public-message-alert {
+  background: #e7f0ff;
+  color: #1d4ed8;
+}
+
+.admin-request-alert.private-note-alert {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+@media (max-width: 700px) {
+  .admin-request-action-cell,
+  .admin-request-alerts {
+    justify-items: start;
+  }
+
+  .admin-detail-drawer .admin-detail-tabs {
+    min-height: 54px !important;
+    padding-inline: 12px !important;
+  }
+}
+
+
+/* Message usability: one clear primary action across all internal-note composers. */
+.internal-note-composer > button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.internal-note-composer > button:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+.internal-note-composer > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+
+/* Keep the user's established conversation panel scrollable and readable. */
+.message-composer textarea,
+.counsellor-conversation form textarea,
+.internal-note-composer textarea {
+  line-height: 1.45;
+}
+
+
+/*
+  Contained chat panes:
+  Every conversation remains a fixed, scrollable area. The page or drawer
+  never grows indefinitely as messages arrive.
+*/
+.workspace-conversation .message-list,
+.counsellor-conversation .counsellor-message-list,
+.counsellor-internal-notes .internal-notes-list,
+.admin-detail-drawer .admin-message-list,
+.admin-detail-drawer .internal-notes-list {
+  box-sizing: border-box !important;
+  height: 360px !important;
+  max-height: 360px !important;
+  min-height: 360px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  padding: 2px 8px 2px 2px !important;
+  scrollbar-gutter: stable;
+}
+
+/* Long unbroken text must remain inside its own message bubble. */
+.workspace-conversation .message-bubble,
+.counsellor-conversation .counsellor-message-list article,
+.counsellor-internal-notes .internal-notes-list article,
+.admin-detail-drawer .admin-message-list article,
+.admin-detail-drawer .internal-notes-list article {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workspace-conversation .message-bubble p,
+.counsellor-conversation .counsellor-message-list p,
+.counsellor-internal-notes .internal-notes-list p,
+.admin-detail-drawer .admin-message-list p,
+.admin-detail-drawer .internal-notes-list p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Ensure the composer cannot extend beyond its own panel. */
+.workspace-conversation .message-composer,
+.counsellor-conversation form,
+.internal-note-composer {
+  min-width: 0;
+}
+
+.workspace-conversation .message-composer textarea,
+.counsellor-conversation form textarea,
+.internal-note-composer textarea {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 700px) {
+  .workspace-conversation .message-list,
+  .counsellor-conversation .counsellor-message-list,
+  .counsellor-internal-notes .internal-notes-list,
+  .admin-detail-drawer .admin-message-list,
+  .admin-detail-drawer .internal-notes-list {
+    height: 300px !important;
+    min-height: 300px !important;
+    max-height: 300px !important;
+  }
+}
