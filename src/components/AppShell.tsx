@@ -60,6 +60,11 @@ function getNavigationItems(user: AuthUser): NavigationItem[] {
       symbol: '◉',
     },
     {
+      label: 'My Toolkit',
+      to: '/app/toolkit',
+      symbol: '◆',
+    },
+    {
       label: 'My Account',
       to: '/app/account',
       symbol: '◍',
