@@ -8,14 +8,16 @@ test.beforeEach(async ({ page }) => {
 test('public home page loads', async ({ page }) => {
   await page.goto('/')
 
+  const hero = page.getByLabel('CareerConnect preparation focus').locator('..')
+
   await expect(
-    page.getByRole('heading', { name: /Take the next step/i }),
-  ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: /Get personalised support/i }),
+    page.getByRole('heading', { name: /Make your next IT career move/i }),
   ).toBeVisible()
   await expect(
     page.getByRole('button', { name: /Create free account/i }),
+  ).toBeVisible()
+  await expect(
+    hero.getByRole('link', { name: /Explore how CareerConnect works/i }),
   ).toBeVisible()
 })
 
