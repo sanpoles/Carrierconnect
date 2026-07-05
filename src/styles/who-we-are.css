@@ -1,0 +1,288 @@
+.who-page {
+  background: #ffffff;
+  color: #102a56;
+}
+
+.who-hero,
+.who-story,
+.who-profiles,
+.who-lessons,
+.who-guidance,
+.who-final-cta {
+  scroll-margin-top: 96px;
+}
+
+.who-hero {
+  background:
+    radial-gradient(circle at 92% 22%, rgba(191, 219, 254, 0.86), transparent 34%),
+    linear-gradient(135deg, #f8fbff 0%, #edf5ff 100%);
+  min-height: 440px;
+  padding: 4.75rem max(1.25rem, calc((100% - 1180px) / 2));
+}
+
+.who-hero > div,
+.who-section-heading {
+  max-width: 820px;
+}
+
+.who-eyebrow,
+.who-placeholder {
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.9rem;
+  text-transform: uppercase;
+}
+
+.who-hero h1,
+.who-section-heading h2,
+.who-final-cta h2 {
+  color: #102a56;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.who-hero h1 {
+  font-size: 4rem;
+  max-width: 760px;
+}
+
+.who-section-heading h2,
+.who-final-cta h2 {
+  font-size: 2.55rem;
+}
+
+.who-hero p:last-child,
+.who-section-heading p,
+.who-founder-copy p,
+.who-card-grid p,
+.who-guidance li {
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.who-hero p:last-child {
+  font-size: 1.12rem;
+  margin: 1.4rem 0 0;
+  max-width: 760px;
+}
+
+.who-story,
+.who-profiles,
+.who-lessons,
+.who-guidance {
+  padding: 3.85rem max(1.25rem, calc((100% - 1180px) / 2));
+}
+
+.who-story,
+.who-lessons {
+  background: #ffffff;
+}
+
+.who-profiles,
+.who-guidance {
+  background: #f8fbff;
+}
+
+.who-section-heading p {
+  margin: 1rem 0 0;
+}
+
+.who-founder-card {
+  align-items: stretch;
+  background: #ffffff;
+  border: 1px solid #dbe5f0;
+  border-radius: 1.15rem;
+  box-shadow: 0 18px 44px rgba(15, 43, 86, 0.07);
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 0.58fr);
+  margin-top: 1.35rem;
+  padding: 1.1rem;
+}
+
+.who-founder-photo {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(191, 219, 254, 0.5)),
+    #ffffff;
+  border: 1px dashed #93c5fd;
+  border-radius: 1rem;
+  color: #1d4ed8;
+  display: flex;
+  font-size: 1.1rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 260px;
+  text-align: center;
+}
+
+.who-founder-copy {
+  align-self: center;
+  padding: 1rem;
+}
+
+.who-founder-copy h3 {
+  color: #102a56;
+  font-size: 2rem;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.who-founder-role {
+  color: #2563eb !important;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.who-founder-copy a {
+  color: #1d4ed8;
+  display: inline-flex;
+  font-weight: 900;
+  margin-top: 0.8rem;
+}
+
+.who-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1.35rem;
+}
+
+.who-card-grid article {
+  background: #ffffff;
+  border: 1px solid #dbe5f0;
+  border-radius: 1rem;
+  box-shadow: 0 14px 32px rgba(15, 43, 86, 0.05);
+  padding: 1.2rem;
+}
+
+.who-card-grid span {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 50%;
+  color: #2563eb;
+  display: inline-flex;
+  font-size: 1.1rem;
+  font-weight: 900;
+  height: 2rem;
+  justify-content: center;
+  line-height: 1;
+  margin-bottom: 0.9rem;
+  width: 2rem;
+}
+
+.who-card-grid p {
+  color: #102a56;
+  font-weight: 800;
+  margin: 0;
+}
+
+.who-guidance ul {
+  display: grid;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 1.35rem 0 0;
+  max-width: 760px;
+  padding: 0;
+}
+
+.who-guidance li {
+  background: #ffffff;
+  border: 1px solid #dbe5f0;
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+
+.who-final-cta {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 1.15rem;
+  box-shadow: 0 18px 44px rgba(15, 43, 86, 0.08);
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  margin: 3.25rem auto;
+  max-width: 1180px;
+  padding: 2rem;
+}
+
+.who-primary-link,
+.who-secondary-link {
+  align-items: center;
+  border-radius: 0.7rem;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 3.05rem;
+  padding: 0.85rem 1.15rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.who-primary-link {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  color: #ffffff;
+}
+
+.who-secondary-link {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  color: #102a56;
+}
+
+@media (max-width: 900px) {
+  .who-hero {
+    min-height: 0;
+    padding-top: 4rem;
+  }
+
+  .who-hero h1 {
+    font-size: 3rem;
+  }
+
+  .who-founder-card,
+  .who-card-grid,
+  .who-final-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .who-founder-photo {
+    min-height: 260px;
+  }
+
+  .who-final-cta {
+    align-items: flex-start;
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .who-hero,
+  .who-story,
+  .who-profiles,
+  .who-lessons,
+  .who-guidance,
+  .who-final-cta {
+    padding-bottom: 3rem;
+    padding-top: 3rem;
+  }
+
+  .who-hero h1,
+  .who-section-heading h2,
+  .who-final-cta h2 {
+    font-size: 2.15rem;
+  }
+
+  .who-primary-link,
+  .who-secondary-link {
+    width: 100%;
+  }
+}

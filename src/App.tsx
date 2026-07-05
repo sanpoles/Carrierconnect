@@ -10,6 +10,7 @@ import OrganizationsPage from './pages/OrganizationsPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import RolePortal from './pages/RolePortal'
 import UserPortal from './pages/UserPortal'
+import WhoWeArePage from './pages/WhoWeArePage'
 import { getStoredUser } from './services/api'
 
 function getDefaultPortalPath() {
@@ -25,6 +26,7 @@ function App() {
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<PublicHome />} />
+        <Route path="/who-we-are" element={<WhoWeArePage />} />
         <Route path="/organizations" element={<OrganizationsPage />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/register" element={<AuthPage mode="register" />} />
