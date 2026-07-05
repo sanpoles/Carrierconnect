@@ -26,7 +26,6 @@ const {
 
 const {
   apiRateLimiter,
-  authRateLimiter,
 } = require("./src/middleware/rateLimiters");
 
 const {
@@ -87,7 +86,7 @@ app.get("/", (req, res) => {
 app.use("/api", apiRateLimiter);
 
 app.use("/api/health", healthRoutes);
-app.use("/api/auth", authRateLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 
 app.use("/api/requests", requestRoutes);
 app.use("/api/requests", messageRoutes);

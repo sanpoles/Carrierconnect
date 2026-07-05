@@ -8,6 +8,7 @@ const { pool } = require("../db/pool");
 const env = require("../config/env");
 const asyncHandler = require("../utils/asyncHandler");
 const { authenticateToken } = require("../middleware/authMiddleware");
+const { authRateLimiter } = require("../middleware/rateLimiters");
 const { validateRequest } = require("../middleware/validateRequest");
 const { createAuditLog } = require("../services/auditService");
 const { sendPasswordResetEmail } = require("../services/emailService");
@@ -252,6 +253,7 @@ async function recordPasswordResetRequest({ emailHash, ipAddress }) {
 
 router.post(
   "/register",
+  authRateLimiter,
   validateRequest(registerSchema),
   asyncHandler(async (req, res) => {
     const { fullName, email, password, phone } = req.validatedBody;
@@ -325,6 +327,7 @@ router.post(
 
 router.post(
   "/login",
+  authRateLimiter,
   validateRequest(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.validatedBody;
@@ -411,6 +414,7 @@ router.post(
 
 router.post(
   "/forgot-password",
+  authRateLimiter,
   validateRequest(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const normalizedEmail = req.validatedBody.email.toLowerCase();
@@ -522,6 +526,7 @@ router.post(
 
 router.post(
   "/reset-password",
+  authRateLimiter,
   validateRequest(resetPasswordSchema),
   asyncHandler(async (req, res) => {
     const { token, password } = req.validatedBody;

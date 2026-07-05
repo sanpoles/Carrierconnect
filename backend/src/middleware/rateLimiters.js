@@ -1,8 +1,19 @@
 const { rateLimit } = require("express-rate-limit");
 
+const isProduction = process.env.NODE_ENV === "production";
+
+function nonProductionNumber(name, fallback) {
+  if (isProduction) {
+    return fallback;
+  }
+
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 300,
+  limit: nonProductionNumber("API_RATE_LIMIT_MAX", 300),
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: {
@@ -13,7 +24,7 @@ const apiRateLimiter = rateLimit({
 
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: nonProductionNumber("AUTH_RATE_LIMIT_MAX", 20),
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: {
