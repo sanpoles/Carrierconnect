@@ -19,10 +19,13 @@ const availabilityRoutes = require("./src/routes/availabilityRoutes");
 const careerProfileRoutes = require("./src/routes/careerProfileRoutes");
 const counsellorPreparationRoutes = require("./src/routes/counsellorPreparationRoutes");
 const bookingRoutes = require("./src/routes/bookingRoutes");
+const {
+  adminToolkitRoutes,
+  toolkitRoutes,
+} = require("./src/routes/toolkitRoutes");
 
 const {
   apiRateLimiter,
-  authRateLimiter,
 } = require("./src/middleware/rateLimiters");
 
 const {
@@ -83,15 +86,17 @@ app.get("/", (req, res) => {
 app.use("/api", apiRateLimiter);
 
 app.use("/api/health", healthRoutes);
-app.use("/api/auth", authRateLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 
 app.use("/api/requests", requestRoutes);
 app.use("/api/requests", messageRoutes);
 
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/toolkit", toolkitRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminUserRoutes);
+app.use("/api/admin", adminToolkitRoutes);
 app.use("/api/counsellor/availability", availabilityRoutes);
 app.use("/api/counsellor", counsellorPreparationRoutes);
 app.use("/api", careerProfileRoutes);

@@ -6,6 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import PublicLayout from './components/PublicLayout'
 import AuthPage from './pages/AuthPage'
 import PublicHome from './pages/PublicHome'
+import CareerToolkitPage from './pages/CareerToolkitPage'
+import ToolkitResourcePage from './pages/ToolkitResourcePage'
 import OrganizationsPage from './pages/OrganizationsPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import RolePortal from './pages/RolePortal'
@@ -27,6 +29,9 @@ function App() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<PublicHome />} />
         <Route path="/who-we-are" element={<WhoWeArePage />} />
+        <Route path="/career-toolkit" element={<CareerToolkitPage />} />
+        <Route path="/career-toolkit/:categorySlug" element={<CareerToolkitPage />} />
+        <Route path="/career-toolkit/resources/:resourceSlug" element={<ToolkitResourcePage />} />
         <Route path="/organizations" element={<OrganizationsPage />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/register" element={<AuthPage mode="register" />} />
@@ -39,6 +44,7 @@ function App() {
         <Route path="/app/workspace" element={<UserPortal page="workspace" />} />
         <Route path="/app/sessions" element={<UserPortal page="sessions" />} />
         <Route path="/app/notifications" element={<UserPortal page="notifications" />} />
+        <Route path="/app/toolkit" element={<UserPortal page="toolkit" />} />
         <Route path="/app/account" element={<UserPortal page="account" />} />
       </Route></Route>
       <Route element={<ProtectedRoute allowedRoles={['counsellor']} />}><Route element={<AppShell />}>

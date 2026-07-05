@@ -31,9 +31,10 @@ export type CareerRequest = {
   title: string; description: string; industry?: string | null; currentJobTitle?: string | null
   yearsOfExperience?: number | null; targetRole?: string | null; skills?: string[]
   preferredDate?: string | null; preferredTimeSlot?: string | null; timezone?: string | null
+  resumeDocument?: ResumeDocument | null
   submittedAt?: string | null; assignedAt?: string | null; completedAt?: string | null; cancelledAt?: string | null
   cancellationReason?: string | null; deliveryState?: DeliveryState; createdAt: string; updatedAt?: string
-  user?: { id: string; fullName: string; email: string } | null
+  user?: { id: string; fullName: string; email: string; phone?: string | null } | null
   assignedCounsellor?: { id: string; fullName: string; email: string } | null
   unreadMessageCount?: number
 }
@@ -92,7 +93,7 @@ export const authApi = {
 }
 export const requestApi = {
   getMyRequests: () => apiRequest<{ success: boolean; count: number; requests: CareerRequest[] }>('/requests/my'),
-  createRequest: (payload: { requestType: 'career_counselling' | 'mock_interview'; title: string; description: string; industry?: string; currentJobTitle?: string; yearsOfExperience?: number; targetRole?: string; skills?: string[]; preferredDate?: string; preferredTimeSlot?: string; timezone?: string; additionalDetails?: Record<string, unknown> }) => apiRequest<{ success: boolean; message: string; request: CareerRequest }>('/requests', { method: 'POST', body: JSON.stringify(payload) }),
+  createRequest: (payload: { requestType: 'career_counselling' | 'mock_interview'; title: string; description: string; industry?: string; currentJobTitle?: string; yearsOfExperience?: number; targetRole?: string; skills?: string[]; preferredDate?: string; preferredTimeSlot?: string; timezone?: string; serviceContact?: { phoneCountryCode: string; phoneNumber: string; serviceCommunicationConsent: true }; additionalDetails?: Record<string, unknown> }) => apiRequest<{ success: boolean; message: string; request: CareerRequest }>('/requests', { method: 'POST', body: JSON.stringify(payload) }),
 }
 export const messageApi = {
   getMessages: (requestId: string) => apiRequest<{ success: boolean; count: number; messages: RequestMessage[]; deliveryState?: DeliveryState }>(`/requests/${requestId}/messages`),
@@ -151,11 +152,13 @@ export const adminApi = {
 export type AdminUser = { id:string; fullName:string; email:string; role:UserRole; adminScope?: AdminScope | null; phone?:string|null; isActive:boolean; lastLoginAt?:string|null; createdAt:string; updatedAt?:string }
 export type CareerProfile = { professionalSummary:string; currentJobTitle:string; industry:string; yearsOfExperience:number|null; targetRole:string; skills:string[]; careerGoals:string; linkedinUrl:string; updatedAt?:string|null }
 export type ResumeDocument = { id:string; originalFileName:string; mimeType:string; sizeBytes:number; uploadedAt:string }
+export type ServiceContact = { phone?:string|null; phoneCountryCode:string; phoneNumber:string; phoneE164?:string|null; serviceCommunicationConsentAt?:string|null; readyForServiceContact:boolean }
 export type CounsellorAvailability = { isAvailable:boolean; timezone:string; defaultSessionDurationMinutes:number; windows:Array<{id?:string;dayOfWeek:number;startTime:string;endTime:string;enabled:boolean}>; blocks:Array<{id:string;startsAt:string;endsAt:string;reason?:string|null}> }
 export const careerProfileApi = {
-  get: () => apiRequest<{success:boolean;profile:CareerProfile;resume:ResumeDocument|null}>('/me/career-profile'),
+  get: () => apiRequest<{success:boolean;profile:CareerProfile;resume:ResumeDocument|null;contact?:ServiceContact}>('/me/career-profile'),
   save: (payload: CareerProfile) => apiRequest<{success:boolean;message:string;profile:CareerProfile}>('/me/career-profile',{method:'PUT',body:JSON.stringify(payload)}),
   uploadResume: (file: File) => { const form=new FormData(); form.append('resume',file); return apiFormRequest<{success:boolean;message:string;resume:ResumeDocument}>('/me/career-profile/resume',form,{method:'POST'}) },
+  saveServiceContact: (payload:{phoneCountryCode:string;phoneNumber:string;serviceCommunicationConsent:true}) => apiRequest<{success:boolean;message:string;contact:ServiceContact}>('/me/service-contact',{method:'PUT',body:JSON.stringify(payload)}),
   downloadUrl: (resumeId:string) => `${API_BASE_URL}/resumes/${resumeId}/download`,
 }
 export const availabilityApi = {
@@ -173,4 +176,18 @@ export const adminUserApi = {
   changeRole:(id:string,role:UserRole,adminScope:AdminScope|null,reason:string)=>apiRequest<{success:boolean;message:string;user:AdminUser}>(`/admin/users/${id}/role`,{method:'PATCH',body:JSON.stringify({role,adminScope,reason})}),
   deactivate:(id:string,reason:string)=>apiRequest<{success:boolean;message:string;user:AdminUser}>(`/admin/users/${id}/deactivate`,{method:'PATCH',body:JSON.stringify({reason})}),
   reactivate:(id:string,reason:string)=>apiRequest<{success:boolean;message:string;user:AdminUser}>(`/admin/users/${id}/reactivate`,{method:'PATCH',body:JSON.stringify({reason})}),
+}
+
+export type ToolkitResourceType = 'guide' | 'framework' | 'checklist' | 'worksheet' | 'template' | 'answer_library'
+export type ToolkitCategory = { id:string; slug:string; name:string; description:string; displayOrder:number; isActive:boolean }
+export type ToolkitContentBlock = { type:'heading'|'paragraph'|'list'|'callout'; heading?:string; body?:string; items?:string[] }
+export type ToolkitResource = { id:string; category:{id:string;slug:string;name:string}; slug:string; title:string; description:string; resourceType:ToolkitResourceType; readingTimeMinutes:number; previewBody:string; whatYouWillLearn:string[]; status?:'draft'|'published'|'archived'; publishedAt?:string|null; saved?:boolean; contentBlocks?:ToolkitContentBlock[]; createdAt?:string; updatedAt?:string }
+export const toolkitApi = {
+  getCategories: () => apiRequest<{success:boolean;categories:ToolkitCategory[]}>('/toolkit/categories'),
+  getResources: (filters:{category?:string;type?:ToolkitResourceType;search?:string}={}) => apiRequest<{success:boolean;resources:ToolkitResource[]}>(`/toolkit/resources${toQueryString(filters)}`),
+  getPreview: (slug:string) => apiRequest<{success:boolean;resource:ToolkitResource;access:{fullContentRequiresLogin:boolean}}>(`/toolkit/resources/${slug}`),
+  getFull: (slug:string) => apiRequest<{success:boolean;resource:ToolkitResource}>(`/toolkit/resources/${slug}/full`),
+  getSaved: () => apiRequest<{success:boolean;resources:ToolkitResource[]}>('/toolkit/my/saves'),
+  save: (resourceId:string) => apiRequest<{success:boolean;message:string}>(`/toolkit/resources/${resourceId}/save`,{method:'POST'}),
+  unsave: (resourceId:string) => apiRequest<{success:boolean;message:string}>(`/toolkit/resources/${resourceId}/save`,{method:'DELETE'}),
 }

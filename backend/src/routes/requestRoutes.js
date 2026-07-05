@@ -1,6 +1,7 @@
 const express = require("express");
 const { z } = require("zod");
 
+const env = require("../config/env");
 const { pool } = require("../db/pool");
 const asyncHandler = require("../utils/asyncHandler");
 const { createRequestNumber } = require("../utils/requestNumber");
@@ -11,8 +12,14 @@ const {
 const { validateRequest } = require("../middleware/validateRequest");
 const { validateParams } = require("../middleware/validateParams");
 const { createAuditLog } = require("../services/auditService");
+const { notifyUser } = require("../services/notificationService");
+const { normalizePhone } = require("../utils/phone");
 
 const router = express.Router();
+
+function envRequire(featureName) {
+  return env.features[featureName] !== false;
+}
 
 const requestIdParamsSchema = z
   .object({
@@ -100,6 +107,25 @@ const requestCreateSchema = z
       .optional()
       .or(z.literal("")),
 
+    serviceContact: z
+      .object({
+        phoneCountryCode: z
+          .string()
+          .trim()
+          .min(2, "Select a country code.")
+          .max(8, "Select a valid country code."),
+        phoneNumber: z
+          .string()
+          .trim()
+          .min(4, "Enter a valid phone number.")
+          .max(30, "Enter a valid phone number."),
+        serviceCommunicationConsent: z.literal(true, {
+          message:
+            "Consent is required before we can contact you about this request.",
+        }),
+      })
+      .optional(),
+
     additionalDetails: z
       .record(z.string().max(100), z.unknown())
       .optional()
@@ -146,6 +172,15 @@ function mapRequestRecord(record) {
     timezone: record.timezone,
 
     resumeUrl: record.resume_url,
+    resumeDocument: record.resume_document_id
+      ? {
+          id: record.resume_document_id,
+          originalFileName: record.resume_original_file_name || null,
+          mimeType: record.resume_mime_type || null,
+          sizeBytes: record.resume_size_bytes || null,
+          uploadedAt: record.resume_uploaded_at || null,
+        }
+      : null,
     additionalDetails: record.additional_details || {},
 
     user: record.user_id
@@ -153,6 +188,7 @@ function mapRequestRecord(record) {
           id: record.user_id,
           fullName: record.user_full_name,
           email: record.user_email,
+          phone: record.user_phone || null,
         }
       : null,
 
@@ -196,6 +232,8 @@ const requestSelectColumns = `
     sr.preferred_time_slot,
     sr.timezone,
     sr.resume_url,
+    sr.resume_document_id,
+    sr.service_phone_e164,
     sr.additional_details,
     sr.submitted_at,
     sr.assigned_at,
@@ -207,6 +245,12 @@ const requestSelectColumns = `
 
     request_user.full_name AS user_full_name,
     request_user.email AS user_email,
+    request_user.phone AS user_phone,
+
+    resume_document.original_file_name AS resume_original_file_name,
+    resume_document.mime_type AS resume_mime_type,
+    resume_document.size_bytes AS resume_size_bytes,
+    resume_document.uploaded_at AS resume_uploaded_at,
 
     counsellor.full_name AS counsellor_full_name,
     counsellor.email AS counsellor_email,
@@ -221,6 +265,7 @@ const requestSelectColumns = `
 
   FROM service_requests sr
   INNER JOIN users request_user ON request_user.id = sr.user_id
+  LEFT JOIN user_resume_documents resume_document ON resume_document.id = sr.resume_document_id
   LEFT JOIN users counsellor ON counsellor.id = sr.assigned_counsellor_id
 `;
 
@@ -277,6 +322,41 @@ async function getCareerProfileReadiness(userId, dbClient = pool) {
   return { complete: missing.length === 0, missing };
 }
 
+async function getRequestReadiness(userId, dbClient = pool) {
+  const [userResult, resumeResult] = await Promise.all([
+    dbClient.query(
+      `SELECT
+        phone_country_code,
+        phone_number,
+        phone_e164,
+        service_contact_consent_at
+       FROM users
+       WHERE id=$1`,
+      [userId]
+    ),
+    dbClient.query(
+      `SELECT id, original_file_name, mime_type, size_bytes, uploaded_at
+       FROM user_resume_documents
+       WHERE user_id=$1 AND is_current=true AND deleted_at IS NULL`,
+      [userId]
+    ),
+  ]);
+
+  const user = userResult.rows[0] || {};
+  const hasServiceContact = Boolean(
+    user.phone_country_code &&
+      user.phone_number &&
+      user.phone_e164 &&
+      user.service_contact_consent_at
+  );
+
+  return {
+    hasServiceContact,
+    contact: user,
+    resume: resumeResult.rows[0] || null,
+  };
+}
+
 router.post(
   "/",
   authenticateToken,
@@ -296,6 +376,7 @@ router.post(
       preferredTimeSlot,
       timezone,
       resumeUrl,
+      serviceContact,
       additionalDetails,
     } = req.validatedBody;
 
@@ -306,6 +387,49 @@ router.post(
         success: false,
         message: `Complete your Career Profile before submitting a request. Missing: ${profileReadiness.missing.join(", ")}. A resume is optional but recommended.`,
         missingCareerProfileFields: profileReadiness.missing,
+      });
+    }
+
+    const requestReadiness = await getRequestReadiness(req.user.id);
+    let servicePhone = null;
+
+    if (envRequire("requireRequestPhone") && !requestReadiness.hasServiceContact) {
+      if (!serviceContact) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Add a service contact phone number and consent before submitting this request.",
+          missingServiceContact: true,
+        });
+      }
+
+      const normalized = normalizePhone(
+        serviceContact.phoneCountryCode,
+        serviceContact.phoneNumber
+      );
+
+      if (!normalized.valid) {
+        return res.status(400).json({
+          success: false,
+          message: normalized.message,
+        });
+      }
+
+      servicePhone = normalized;
+    } else if (requestReadiness.hasServiceContact) {
+      servicePhone = {
+        countryCode: requestReadiness.contact.phone_country_code,
+        phoneNumber: requestReadiness.contact.phone_number,
+        phoneE164: requestReadiness.contact.phone_e164,
+      };
+    }
+
+    if (envRequire("requireRequestResume") && !requestReadiness.resume) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Upload a PDF or DOCX resume before submitting this support request.",
+        missingResume: true,
       });
     }
 
@@ -323,6 +447,28 @@ router.post(
 
           const requestResult = await client.query(
             `
+              WITH updated_user AS (
+                UPDATE users
+                SET
+                  phone = COALESCE($16, phone),
+                  phone_country_code = COALESCE($17, phone_country_code),
+                  phone_number = COALESCE($18, phone_number),
+                  phone_e164 = COALESCE($19, phone_e164),
+                  service_contact_consent_at = CASE
+                    WHEN $16::text IS NOT NULL THEN NOW()
+                    ELSE service_contact_consent_at
+                  END,
+                  service_contact_consent_ip = CASE
+                    WHEN $16::text IS NOT NULL THEN $20::inet
+                    ELSE service_contact_consent_ip
+                  END,
+                  service_contact_consent_user_agent = CASE
+                    WHEN $16::text IS NOT NULL THEN $21::text
+                    ELSE service_contact_consent_user_agent
+                  END,
+                  updated_at = NOW()
+                WHERE id = $2
+              )
               INSERT INTO service_requests (
                 request_number,
                 user_id,
@@ -339,11 +485,19 @@ router.post(
                 preferred_time_slot,
                 timezone,
                 resume_url,
+                resume_document_id,
+                service_phone_country_code,
+                service_phone_number,
+                service_phone_e164,
+                service_contact_consent_at,
+                service_contact_consent_ip,
+                service_contact_consent_user_agent,
                 additional_details
               )
               VALUES (
                 $1, $2, $3, 'submitted', $4, $5, $6, $7,
-                $8, $9, $10, $11, $12, $13, $14, $15
+                $8, $9, $10, $11, $12, $13, $14, $22,
+                $17, $18, $19, NOW(), $20, $21, $15
               )
               RETURNING *
             `,
@@ -363,6 +517,13 @@ router.post(
               timezone,
               resumeUrl || null,
               JSON.stringify(additionalDetails || {}),
+              servicePhone?.phoneE164 || null,
+              servicePhone?.countryCode || null,
+              servicePhone?.phoneNumber || null,
+              servicePhone?.phoneE164 || null,
+              req.ip,
+              req.get("user-agent") || null,
+              requestReadiness.resume?.id || null,
             ]
           );
 
@@ -378,6 +539,8 @@ router.post(
               requestNumber: createdRequest.request_number,
               requestType: createdRequest.request_type,
               status: createdRequest.status,
+              resumeDocumentId: createdRequest.resume_document_id,
+              serviceContactProvided: Boolean(createdRequest.service_phone_e164),
             },
             ipAddress: req.ip,
             userAgent: req.get("user-agent"),
@@ -385,6 +548,7 @@ router.post(
           });
 
           await client.query("COMMIT");
+
           break;
         } catch (error) {
           await client.query("ROLLBACK");
@@ -399,6 +563,26 @@ router.post(
 
       if (!createdRequest) {
         throw lastError || new Error("Unable to create service request.");
+      }
+
+      try {
+        await notifyUser({
+          userId: req.user.id,
+          userEmail: req.user.email,
+          requestId: createdRequest.id,
+          notificationType: "request_submitted",
+          title: "Your request was submitted",
+          message: `We received ${createdRequest.request_number}. CareerConnect will review it and keep updates in your workspace.`,
+          actionUrl: `/app/workspace?requestId=${createdRequest.id}`,
+          emailSubject: `Request submitted: ${createdRequest.request_number}`,
+          emailText: `Hello ${req.user.full_name},\n\nWe received your ${createdRequest.request_type === "mock_interview" ? "Mock Interview" : "Career Guidance"} request (${createdRequest.request_number}). You can follow updates in your CareerConnect workspace.`,
+        });
+      } catch (error) {
+        console.error("Unable to create request submission notification:", {
+          requestId: createdRequest.id,
+          userId: req.user.id,
+          message: error.message,
+        });
       }
 
       res.status(201).json({

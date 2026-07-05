@@ -120,6 +120,7 @@ function PublicLayout() {
             </div>
           </div>
           <Link to="/who-we-are">Who We Are</Link>
+          <Link to="/career-toolkit">Career Toolkit</Link>
           <Link to="/organizations">For Organizations</Link>
         </nav>
 
