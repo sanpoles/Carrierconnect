@@ -7,12 +7,16 @@ import {
   getStoredUser,
   notificationApi,
   requestApi,
+  toolkitApi,
   sessionApi,
   type CareerNotification,
   type CareerProfile,
   type CareerRequest,
   type CareerSession,
+  type ServiceContact,
+  type ToolkitResource,
 } from '../services/api'
+import '../styles/request-readiness.css'
 
 type UserPortalPage =
   | 'dashboard'
@@ -20,6 +24,7 @@ type UserPortalPage =
   | 'workspace'
   | 'sessions'
   | 'notifications'
+  | 'toolkit'
   | 'account'
 
 type UserPortalProps = {
@@ -99,6 +104,13 @@ function UserPortal({ page }: UserPortalProps) {
 
   const [careerProfile, setCareerProfile] = useState<CareerProfile | null>(null)
   const [hasResume, setHasResume] = useState(false)
+  const [currentResumeName, setCurrentResumeName] = useState('')
+  const [serviceContact, setServiceContact] = useState<ServiceContact | null>(null)
+  const [servicePhoneCountryCode, setServicePhoneCountryCode] = useState('+91')
+  const [servicePhoneNumber, setServicePhoneNumber] = useState('')
+  const [serviceContactConsent, setServiceContactConsent] = useState(false)
+  const [requestResumeFile, setRequestResumeFile] = useState<File | null>(null)
+  const [savedToolkitResources, setSavedToolkitResources] = useState<ToolkitResource[]>([])
   const [isLoadingCareerProfile, setIsLoadingCareerProfile] = useState(true)
 
   useEffect(() => {
@@ -113,6 +125,11 @@ function UserPortal({ page }: UserPortalProps) {
         if (isMounted) {
           setCareerProfile(response.profile)
           setHasResume(Boolean(response.resume))
+          setCurrentResumeName(response.resume?.originalFileName || '')
+          setServiceContact(response.contact || null)
+          setServicePhoneCountryCode(response.contact?.phoneCountryCode || '+91')
+          setServicePhoneNumber(response.contact?.phoneNumber || '')
+          setServiceContactConsent(Boolean(response.contact?.readyForServiceContact))
         }
       } catch (error) {
         if (isMounted) {
@@ -167,6 +184,16 @@ function UserPortal({ page }: UserPortalProps) {
 
           if (isMounted) {
             setNotifications(response.notifications)
+          }
+
+          return
+        }
+
+        if (page === 'toolkit') {
+          const response = await toolkitApi.getSaved()
+
+          if (isMounted) {
+            setSavedToolkitResources(response.resources)
           }
 
           return
@@ -227,13 +254,37 @@ function UserPortal({ page }: UserPortalProps) {
       return
     }
 
-    if (!hasResume) {
-      const continueWithoutResume = window.confirm(
-        'A resume is optional, but uploading one can help your counsellor prepare more effectively. Would you like to continue without a resume?',
-      )
+    let serviceContactPayload:
+      | {
+          phoneCountryCode: string
+          phoneNumber: string
+          serviceCommunicationConsent: true
+        }
+      | undefined
 
-      if (!continueWithoutResume) {
-        navigate('/app/account')
+    if (!serviceContact?.readyForServiceContact) {
+      if (!servicePhoneCountryCode.trim() || !servicePhoneNumber.trim()) {
+        setErrorMessage('Add your service contact phone number before submitting this request.')
+        return
+      }
+
+      if (!serviceContactConsent) {
+        setErrorMessage(
+          'Confirm that CareerConnect may use this phone number for service communication.',
+        )
+        return
+      }
+
+      serviceContactPayload = {
+        phoneCountryCode: servicePhoneCountryCode.trim(),
+        phoneNumber: servicePhoneNumber.trim(),
+        serviceCommunicationConsent: true,
+      }
+    }
+
+    if (!hasResume) {
+      if (!requestResumeFile) {
+        setErrorMessage('Upload a PDF or DOCX resume before submitting this support request.')
         return
       }
     }
@@ -243,6 +294,23 @@ function UserPortal({ page }: UserPortalProps) {
     setIsSubmittingRequest(true)
 
     try {
+      let uploadedResumeName = currentResumeName
+
+      if (!hasResume && requestResumeFile) {
+        const uploadResponse = await careerProfileApi.uploadResume(requestResumeFile)
+        setHasResume(true)
+        setCurrentResumeName(uploadResponse.resume.originalFileName)
+        setRequestResumeFile(null)
+        uploadedResumeName = uploadResponse.resume.originalFileName
+      }
+
+      if (serviceContactPayload) {
+        const contactResponse =
+          await careerProfileApi.saveServiceContact(serviceContactPayload)
+        setServiceContact(contactResponse.contact)
+        setServiceContactConsent(true)
+      }
+
       const skills = requestForm.skills
         .split(',')
         .map((skill) => skill.trim())
@@ -268,8 +336,10 @@ function UserPortal({ page }: UserPortalProps) {
         preferredDate: requestForm.preferredDate || undefined,
         preferredTimeSlot: requestForm.preferredTimeSlot || undefined,
         timezone: 'Asia/Kolkata',
+        serviceContact: serviceContactPayload,
         additionalDetails: {
           submittedFrom: 'CareerConnect user portal',
+          resumeReady: Boolean(uploadedResumeName),
         },
       })
 
@@ -328,6 +398,25 @@ function UserPortal({ page }: UserPortalProps) {
   ).length
 
   const careerProfileComplete = isCareerProfileComplete(careerProfile)
+  const requestReadinessItems = [
+    {
+      label: 'Career Profile',
+      ready: careerProfileComplete,
+      detail: careerProfileComplete ? 'Complete' : 'Required before request submission',
+    },
+    {
+      label: 'Service contact',
+      ready: Boolean(serviceContact?.readyForServiceContact),
+      detail: serviceContact?.readyForServiceContact
+        ? serviceContact.phoneE164 || serviceContact.phone || 'Ready'
+        : 'Required for service communication',
+    },
+    {
+      label: 'Resume',
+      ready: hasResume,
+      detail: hasResume ? currentResumeName || 'Uploaded' : 'PDF or DOCX required',
+    },
+  ]
   const showCareerProfileGate =
     isLoadingCareerProfile || !careerProfileComplete
 
@@ -405,8 +494,8 @@ function UserPortal({ page }: UserPortalProps) {
                   </article>
                   <article>
                     <div>
-                      <strong>Resume</strong>
-                      <span>Optional but recommended</span>
+                  <strong>Resume</strong>
+                      <span>Required for Career Guidance and Mock Interview requests</span>
                     </div>
                     <span className="portal-status status-assigned">
                       {hasResume ? 'Uploaded' : 'Not uploaded'}
@@ -523,7 +612,8 @@ function UserPortal({ page }: UserPortalProps) {
           <div className="portal-alert portal-alert-error">
             <strong>Complete your Career Profile before submitting a support request.</strong>{' '}
             Your background, experience, target role, skills, and career goals
-            help your counsellor prepare. A resume is optional but recommended.{' '}
+            help your counsellor prepare. Phone and resume are collected only when
+            you submit a service request.{' '}
             <Link to="/app/account">Complete Career Profile →</Link>
           </div>
         )}
@@ -542,7 +632,7 @@ function UserPortal({ page }: UserPortalProps) {
                 <strong>Prepare your Career Profile first.</strong>
                 <p>
                   Complete the required profile information before choosing a
-                  support service. A resume is optional, but recommended.
+                  support service.
                 </p>
                 <Link className="portal-primary-action" to="/app/account">
                   Complete Career Profile <span>→</span>
@@ -669,6 +759,84 @@ function UserPortal({ page }: UserPortalProps) {
                   </label>
                 </div>
 
+                <div className="request-readiness-panel">
+                  <div className="portal-card-heading">
+                    <div>
+                      <span>REQUEST READINESS</span>
+                      <h3>Required only for service requests</h3>
+                    </div>
+                  </div>
+
+                  <div className="request-readiness-list">
+                    {requestReadinessItems.map((item) => (
+                      <span className={item.ready ? 'ready' : 'needed'} key={item.label}>
+                        <strong>{item.label}</strong>
+                        {item.detail}
+                      </span>
+                    ))}
+                  </div>
+
+                  {!serviceContact?.readyForServiceContact && (
+                    <div className="request-readiness-form-grid">
+                      <label>
+                        Country code
+                        <input
+                          required
+                          placeholder="+91"
+                          type="tel"
+                          value={servicePhoneCountryCode}
+                          onChange={(event) =>
+                            setServicePhoneCountryCode(event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Phone number
+                        <input
+                          required
+                          placeholder="Digits only"
+                          type="tel"
+                          value={servicePhoneNumber}
+                          onChange={(event) =>
+                            setServicePhoneNumber(event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="request-readiness-checkbox">
+                        <input
+                          checked={serviceContactConsent}
+                          required
+                          type="checkbox"
+                          onChange={(event) =>
+                            setServiceContactConsent(event.target.checked)
+                          }
+                        />
+                        <span>
+                          CareerConnect may use this phone number for service
+                          communication about my request.
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  {!hasResume && (
+                    <label className="request-readiness-upload">
+                      Resume upload
+                      <input
+                        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        required
+                        type="file"
+                        onChange={(event) =>
+                          setRequestResumeFile(event.target.files?.[0] || null)
+                        }
+                      />
+                      <small>PDF or DOCX only. This is shared only with authorized CareerConnect staff for your request.</small>
+                    </label>
+                  )}
+                </div>
+
                 <label>
                   Skills or focus areas
                   <input
@@ -778,6 +946,60 @@ function UserPortal({ page }: UserPortalProps) {
             }
           />
         )}
+      </section>
+    )
+  }
+
+  if (page === 'toolkit') {
+    return (
+      <section className="portal-page">
+        <div className="portal-page-header">
+          <div>
+            <p className="eyebrow">MY TOOLKIT</p>
+            <h1>Saved Career Toolkit resources</h1>
+            <p>
+              Keep useful IT career preparation guides, frameworks, checklists,
+              worksheets, and templates in one place.
+            </p>
+          </div>
+
+          <Link className="portal-primary-action" to="/career-toolkit">
+            Browse Career Toolkit <span>→</span>
+          </Link>
+        </div>
+
+        {errorMessage && (
+          <div className="portal-alert portal-alert-error">{errorMessage}</div>
+        )}
+
+        <div className="portal-content-card">
+          {isLoading ? (
+            <div className="portal-loading-panel">Loading My Toolkit…</div>
+          ) : savedToolkitResources.length === 0 ? (
+            <div className="portal-empty-state">
+              <strong>No saved resources yet.</strong>
+              <p>
+                Browse the Career Toolkit and save resources you want to revisit.
+              </p>
+              <Link className="portal-primary-action" to="/career-toolkit">
+                Explore resources <span>→</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="toolkit-saved-list">
+              {savedToolkitResources.map((resource) => (
+                <article key={resource.id}>
+                  <span>{resource.category.name}</span>
+                  <h2>{resource.title}</h2>
+                  <p>{resource.description}</p>
+                  <Link to={`/career-toolkit/resources/${resource.slug}`}>
+                    Open resource →
+                  </Link>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     )
   }

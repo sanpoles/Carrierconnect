@@ -101,7 +101,7 @@ function mapCounsellor(record) {
 }
 
 function mapAdminRequest(record) {
-  return { id: record.id, requestNumber: record.request_number, requestType: record.request_type, status: record.status, title: record.title, description: record.description, industry: record.industry, currentJobTitle: record.current_job_title, yearsOfExperience: record.years_of_experience, targetRole: record.target_role, skills: record.skills || [], preferredDate: record.preferred_date, preferredTimeSlot: record.preferred_time_slot, timezone: record.timezone, user: { id: record.user_id, fullName: record.user_full_name, email: record.user_email }, assignedCounsellor: record.assigned_counsellor_id ? { id: record.assigned_counsellor_id, fullName: record.counsellor_full_name, email: record.counsellor_email } : null, submittedAt: record.submitted_at, assignedAt: record.assigned_at, completedAt: record.completed_at, cancelledAt: record.cancelled_at, cancellationReason: record.cancellation_reason, deliveryState: mapDeliveryState(record), createdAt: record.created_at, updatedAt: record.updated_at };
+  return { id: record.id, requestNumber: record.request_number, requestType: record.request_type, status: record.status, title: record.title, description: record.description, industry: record.industry, currentJobTitle: record.current_job_title, yearsOfExperience: record.years_of_experience, targetRole: record.target_role, skills: record.skills || [], preferredDate: record.preferred_date, preferredTimeSlot: record.preferred_time_slot, timezone: record.timezone, resumeDocument: record.resume_document_id ? { id: record.resume_document_id, originalFileName: record.resume_original_file_name, mimeType: record.resume_mime_type, sizeBytes: record.resume_size_bytes, uploadedAt: record.resume_uploaded_at } : null, user: { id: record.user_id, fullName: record.user_full_name, email: record.user_email, phone: record.service_phone_e164 || record.user_phone || null }, assignedCounsellor: record.assigned_counsellor_id ? { id: record.assigned_counsellor_id, fullName: record.counsellor_full_name, email: record.counsellor_email } : null, submittedAt: record.submitted_at, assignedAt: record.assigned_at, completedAt: record.completed_at, cancelledAt: record.cancelled_at, cancellationReason: record.cancellation_reason, deliveryState: mapDeliveryState(record), createdAt: record.created_at, updatedAt: record.updated_at };
 }
 
 function mapAdminSession(record) {
@@ -113,7 +113,8 @@ const requestSelectColumns = `
     sr.id, sr.request_number, sr.user_id, sr.assigned_counsellor_id,
     sr.request_type, sr.status, sr.title, sr.description, sr.industry,
     sr.current_job_title, sr.years_of_experience, sr.target_role, sr.skills,
-    sr.preferred_date, sr.preferred_time_slot, sr.timezone, sr.submitted_at,
+    sr.preferred_date, sr.preferred_time_slot, sr.timezone, sr.resume_document_id,
+    sr.service_phone_e164, sr.submitted_at,
     sr.assigned_at, sr.completed_at, sr.cancelled_at, sr.cancellation_reason,
     sr.is_locked, sr.locked_at, sr.locked_by, sr.lock_reason,
     sr.created_at, sr.updated_at,
@@ -122,10 +123,16 @@ const requestSelectColumns = `
     COALESCE(se.status, 'inactive') AS entitlement_status,
     request_user.full_name AS user_full_name,
     request_user.email AS user_email,
+    request_user.phone AS user_phone,
+    resume_document.original_file_name AS resume_original_file_name,
+    resume_document.mime_type AS resume_mime_type,
+    resume_document.size_bytes AS resume_size_bytes,
+    resume_document.uploaded_at AS resume_uploaded_at,
     counsellor.full_name AS counsellor_full_name,
     counsellor.email AS counsellor_email
   FROM service_requests sr
   INNER JOIN users request_user ON request_user.id = sr.user_id
+  LEFT JOIN user_resume_documents resume_document ON resume_document.id = sr.resume_document_id
   LEFT JOIN users counsellor ON counsellor.id = sr.assigned_counsellor_id
   LEFT JOIN service_entitlements se ON se.request_id = sr.id
 `;

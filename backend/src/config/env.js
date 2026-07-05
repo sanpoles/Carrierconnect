@@ -57,6 +57,9 @@ const env = {
   features: {
     counsellorApplications:
       process.env.ENABLE_COUNSELLOR_APPLICATIONS === "true",
+    careerToolkit: process.env.FEATURE_CAREER_TOOLKIT !== "false",
+    requireRequestPhone: process.env.REQUIRE_REQUEST_PHONE !== "false",
+    requireRequestResume: process.env.REQUIRE_REQUEST_RESUME !== "false",
   },
 
   email: {
@@ -71,8 +74,9 @@ const env = {
 
   uploads: {
     directory: process.env.UPLOADS_DIRECTORY || "./storage/private",
+    tempDirectory: process.env.UPLOADS_TEMP_DIRECTORY || "./storage/tmp",
     maxResumeBytes: Number(process.env.MAX_RESUME_BYTES || 5 * 1024 * 1024),
-    allowedResumeMimeTypes: (process.env.ALLOWED_RESUME_MIME_TYPES || "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    allowedResumeMimeTypes: (process.env.ALLOWED_RESUME_MIME_TYPES || "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
