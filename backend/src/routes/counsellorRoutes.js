@@ -6,6 +6,14 @@ const asyncHandler = require("../utils/asyncHandler");
 const { authenticateToken, requireRoles } = require("../middleware/authMiddleware");
 const { validateParams } = require("../middleware/validateParams");
 const { validateQuery } = require("../middleware/validateQuery");
+const { validateRequest } = require("../middleware/validateRequest");
+const { assertCounsellorAvailable } = require("../services/availabilityService");
+const { createAuditLog } = require("../services/auditService");
+const { notifyUser } = require("../services/notificationService");
+const {
+  canScheduleForEngagement,
+  getDeliveryState,
+} = require("../services/entitlementService");
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -20,6 +28,55 @@ const uuidShape = z.string().regex(
 
 const requestIdParamsSchema = z.object({
   requestId: uuidShape,
+}).strict();
+
+const acceptSlotParamsSchema = z.object({
+  requestId: uuidShape,
+  slotId: z.string().uuid("Preferred slot ID must be a valid UUID."),
+}).strict();
+
+function isValidTimezone(timezone) {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const isoDateTimeSchema = z.string().trim().min(20).max(50).refine(
+  (value) => /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) && !Number.isNaN(Date.parse(value)),
+  { message: "Date/time must include a timezone offset." }
+);
+
+const proposedSlotSchema = z.object({
+  scheduledStartAt: isoDateTimeSchema,
+  scheduledEndAt: isoDateTimeSchema,
+  timezone: z.string().trim().min(3).max(100).refine(isValidTimezone, {
+    message: "Timezone must be a valid IANA timezone.",
+  }),
+}).strict().refine(
+  (slot) => new Date(slot.scheduledStartAt).getTime() > Date.now() + 5 * 60 * 1000,
+  { message: "Proposed slots must be in the future.", path: ["scheduledStartAt"] }
+).refine(
+  (slot) => new Date(slot.scheduledEndAt).getTime() > new Date(slot.scheduledStartAt).getTime(),
+  { message: "Proposed slot end time must be after start time.", path: ["scheduledEndAt"] }
+);
+
+const acceptPreferredSlotSchema = z.object({
+  meetingProvider: z.string().trim().min(2).max(100).default("To be confirmed"),
+  meetingLink: z.string().trim().url().max(2000).optional().or(z.literal("")),
+}).strict();
+
+const proposeAlternateSlotsSchema = z.object({
+  message: z.string().trim().max(1000).optional().or(z.literal("")),
+  slots: z.array(proposedSlotSchema)
+    .min(2, "Propose at least two alternate options.")
+    .max(3, "You can propose up to three alternate options.")
+    .refine((slots) => {
+      const keys = slots.map((slot) => `${slot.scheduledStartAt}|${slot.scheduledEndAt}`);
+      return new Set(keys).size === keys.length;
+    }, { message: "Proposed alternate options cannot be duplicates." }),
 }).strict();
 
 const queues = [
@@ -108,6 +165,9 @@ function mapCounsellorRequest(record) {
     preferredDate: record.preferred_date,
     preferredTimeSlot: record.preferred_time_slot,
     timezone: record.timezone,
+    schedulingStatus: record.scheduling_status || "requested_preferences",
+    preferredSlots: record.preferred_slots || [],
+    slotProposals: record.slot_proposals || [],
     user: { id: record.user_id, fullName: record.user_full_name, email: record.user_email },
     submittedAt: record.submitted_at,
     assignedAt: record.assigned_at,
@@ -125,7 +185,56 @@ const counsellorRequestSelect = `
     sr.id, sr.request_number, sr.user_id, sr.request_type, sr.status,
     sr.title, sr.description, sr.industry, sr.current_job_title,
     sr.years_of_experience, sr.target_role, sr.skills, sr.preferred_date,
-    sr.preferred_time_slot, sr.timezone, sr.submitted_at, sr.assigned_at,
+    sr.preferred_time_slot, sr.timezone, sr.scheduling_status,
+    COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id', ps.id,
+          'scheduledStartAt', ps.scheduled_start_at,
+          'scheduledEndAt', ps.scheduled_end_at,
+          'timezone', ps.timezone,
+          'displayOrder', ps.display_order,
+          'source', 'user_preference'
+        )
+        ORDER BY ps.display_order
+      )
+      FROM service_request_preferred_slots ps
+      WHERE ps.request_id = sr.id
+    ), '[]'::jsonb) AS preferred_slots,
+    COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id', p.id,
+          'requestId', p.request_id,
+          'counsellorId', p.counsellor_id,
+          'message', p.message,
+          'status', p.status,
+          'selectedOptionId', p.selected_option_id,
+          'createdAt', p.created_at,
+          'updatedAt', p.updated_at,
+          'options', COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', o.id,
+                'scheduledStartAt', o.scheduled_start_at,
+                'scheduledEndAt', o.scheduled_end_at,
+                'timezone', o.timezone,
+                'displayOrder', o.display_order,
+                'status', o.status,
+                'source', 'counsellor_alternative'
+              )
+              ORDER BY o.display_order
+            )
+            FROM session_slot_proposal_options o
+            WHERE o.proposal_id = p.id
+          ), '[]'::jsonb)
+        )
+        ORDER BY p.created_at DESC
+      )
+      FROM session_slot_proposals p
+      WHERE p.request_id = sr.id
+    ), '[]'::jsonb) AS slot_proposals,
+    sr.submitted_at, sr.assigned_at,
     sr.completed_at, sr.cancelled_at, sr.created_at, sr.updated_at,
     sr.is_locked, sr.locked_at, sr.locked_by, sr.lock_reason,
     COALESCE(se.sessions_granted, 0) AS sessions_granted,
@@ -355,5 +464,358 @@ router.get("/requests/:requestId", validateParams(requestIdParamsSchema), asyncH
   if (!result.rowCount) return res.status(404).json({ success: false, message: "Assigned request not found." });
   return res.status(200).json({ success: true, request: mapCounsellorRequest(result.rows[0]) });
 }));
+
+function mapSession(record) {
+  return {
+    id: record.id,
+    requestId: record.request_id,
+    requestNumber: record.request_number,
+    title: record.title,
+    scheduledStartAt: record.scheduled_start_at,
+    scheduledEndAt: record.scheduled_end_at,
+    timezone: record.timezone,
+    meetingProvider: record.meeting_provider,
+    meetingLink: record.meeting_link,
+    status: record.status,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function mapProposal(record, options) {
+  return {
+    id: record.id,
+    requestId: record.request_id,
+    counsellorId: record.counsellor_id,
+    message: record.message,
+    status: record.status,
+    selectedOptionId: record.selected_option_id,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+    options,
+  };
+}
+
+router.post(
+  "/requests/:requestId/preferred-slots/:slotId/accept",
+  validateParams(acceptSlotParamsSchema),
+  validateRequest(acceptPreferredSlotSchema),
+  asyncHandler(async (req, res) => {
+    const { requestId, slotId } = req.validatedParams;
+    const { meetingProvider, meetingLink } = req.validatedBody;
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `SELECT
+          sr.*,
+          request_user.full_name AS user_full_name,
+          request_user.email AS user_email,
+          counsellor.full_name AS counsellor_full_name,
+          counsellor.email AS counsellor_email,
+          ps.id AS preferred_slot_id,
+          ps.scheduled_start_at,
+          ps.scheduled_end_at,
+          ps.timezone AS slot_timezone
+         FROM service_requests sr
+         INNER JOIN users request_user ON request_user.id=sr.user_id
+         INNER JOIN users counsellor ON counsellor.id=sr.assigned_counsellor_id
+         INNER JOIN service_request_preferred_slots ps ON ps.request_id=sr.id
+         WHERE sr.id=$1
+           AND sr.assigned_counsellor_id=$2
+           AND ps.id=$3
+         FOR UPDATE`,
+        [requestId, req.user.id, slotId]
+      );
+
+      if (!result.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, message: "Preferred slot not found." });
+      }
+
+      const request = result.rows[0];
+      const deliveryState = await getDeliveryState(requestId, { dbClient: client, forUpdate: true });
+      const permission = canScheduleForEngagement(deliveryState);
+      if (!permission.allowed) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, message: permission.reason });
+      }
+
+      const startTime = new Date(request.scheduled_start_at);
+      const endTime = new Date(request.scheduled_end_at);
+      const availability = await assertCounsellorAvailable({
+        counsellorId: req.user.id,
+        startAt: startTime,
+        endAt: endTime,
+        dbClient: client,
+      });
+
+      if (!availability.allowed) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, message: availability.reason });
+      }
+
+      const conflictResult = await client.query(
+        `SELECT id FROM sessions
+         WHERE counsellor_id=$1
+           AND status='scheduled'
+           AND scheduled_start_at<$3
+           AND scheduled_end_at>$2
+         FOR UPDATE`,
+        [req.user.id, startTime.toISOString(), endTime.toISOString()]
+      );
+
+      if (conflictResult.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          message: "You already have another scheduled session during this time.",
+        });
+      }
+
+      const sessionResult = await client.query(
+        `INSERT INTO sessions(
+          request_id, user_id, counsellor_id, title, scheduled_start_at,
+          scheduled_end_at, timezone, meeting_provider, meeting_link,
+          meeting_link_updated_at, status
+        )
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,
+          CASE WHEN $9::text IS NULL THEN NULL ELSE NOW() END,
+          'scheduled')
+        RETURNING *`,
+        [
+          requestId,
+          request.user_id,
+          req.user.id,
+          `${request.request_number} - Session`,
+          startTime.toISOString(),
+          endTime.toISOString(),
+          request.slot_timezone,
+          meetingProvider,
+          meetingLink || null,
+        ]
+      );
+
+      await client.query(
+        `UPDATE service_requests
+         SET status='session_scheduled',
+             scheduling_status='confirmed',
+             scheduling_status_updated_at=NOW()
+         WHERE id=$1`,
+        [requestId]
+      );
+
+      await createAuditLog({
+        actorUserId: req.user.id,
+        action: "USER_PREFERRED_SLOT_ACCEPTED",
+        entityType: "service_request_preferred_slot",
+        entityId: slotId,
+        requestId,
+        newValues: {
+          scheduledStartAt: startTime.toISOString(),
+          scheduledEndAt: endTime.toISOString(),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        dbClient: client,
+      });
+
+      await client.query("COMMIT");
+
+      await notifyUser({
+        userId: request.user_id,
+        userEmail: request.user_email,
+        requestId,
+        sessionId: sessionResult.rows[0].id,
+        notificationType: "session_scheduled",
+        title: "Your CareerConnect session has been scheduled",
+        message: `Your counsellor accepted a preferred slot for ${request.request_number}.`,
+        actionUrl: `/app/workspace?requestId=${requestId}`,
+        emailSubject: `Session scheduled: ${request.request_number}`,
+        emailText: `Hello ${request.user_full_name},\n\nYour counsellor accepted one of your preferred session times. Log in to CareerConnect to review the session details.`,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Preferred slot accepted and session scheduled.",
+        schedulingStatus: "confirmed",
+        session: mapSession({
+          ...sessionResult.rows[0],
+          request_number: request.request_number,
+        }),
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  })
+);
+
+router.post(
+  "/requests/:requestId/slot-proposals",
+  validateParams(requestIdParamsSchema),
+  validateRequest(proposeAlternateSlotsSchema),
+  asyncHandler(async (req, res) => {
+    const { requestId } = req.validatedParams;
+    const { message, slots } = req.validatedBody;
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const requestResult = await client.query(
+        `SELECT
+          sr.id,
+          sr.request_number,
+          sr.user_id,
+          sr.assigned_counsellor_id,
+          request_user.full_name AS user_full_name,
+          request_user.email AS user_email
+         FROM service_requests sr
+         INNER JOIN users request_user ON request_user.id=sr.user_id
+         WHERE sr.id=$1 AND sr.assigned_counsellor_id=$2
+         FOR UPDATE`,
+        [requestId, req.user.id]
+      );
+
+      if (!requestResult.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, message: "Assigned request not found." });
+      }
+
+      const deliveryState = await getDeliveryState(requestId, { dbClient: client, forUpdate: true });
+      const permission = canScheduleForEngagement(deliveryState);
+      if (!permission.allowed) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, message: permission.reason });
+      }
+
+      for (const slot of slots) {
+        const startTime = new Date(slot.scheduledStartAt);
+        const endTime = new Date(slot.scheduledEndAt);
+        const availability = await assertCounsellorAvailable({
+          counsellorId: req.user.id,
+          startAt: startTime,
+          endAt: endTime,
+          dbClient: client,
+        });
+
+        if (!availability.allowed) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, message: availability.reason });
+        }
+
+        const conflictResult = await client.query(
+          `SELECT id FROM sessions
+           WHERE counsellor_id=$1
+             AND status='scheduled'
+             AND scheduled_start_at<$3
+             AND scheduled_end_at>$2
+           FOR UPDATE`,
+          [req.user.id, startTime.toISOString(), endTime.toISOString()]
+        );
+
+        if (conflictResult.rowCount) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            success: false,
+            message: "One proposed slot overlaps an existing scheduled session.",
+          });
+        }
+      }
+
+      await client.query(
+        "UPDATE session_slot_proposals SET status='expired', updated_at=NOW() WHERE request_id=$1 AND status='proposed'",
+        [requestId]
+      );
+
+      const proposalResult = await client.query(
+        `INSERT INTO session_slot_proposals(request_id, counsellor_id, message)
+         VALUES($1,$2,$3)
+         RETURNING *`,
+        [requestId, req.user.id, message || null]
+      );
+
+      const options = [];
+      for (const [index, slot] of slots.entries()) {
+        const optionResult = await client.query(
+          `INSERT INTO session_slot_proposal_options(
+            proposal_id, scheduled_start_at, scheduled_end_at, timezone, display_order
+          )
+          VALUES($1,$2,$3,$4,$5)
+          RETURNING *`,
+          [
+            proposalResult.rows[0].id,
+            slot.scheduledStartAt,
+            slot.scheduledEndAt,
+            slot.timezone,
+            index + 1,
+          ]
+        );
+
+        options.push({
+          id: optionResult.rows[0].id,
+          scheduledStartAt: optionResult.rows[0].scheduled_start_at,
+          scheduledEndAt: optionResult.rows[0].scheduled_end_at,
+          timezone: optionResult.rows[0].timezone,
+          displayOrder: optionResult.rows[0].display_order,
+          status: optionResult.rows[0].status,
+          source: "counsellor_alternative",
+        });
+      }
+
+      await client.query(
+        `UPDATE service_requests
+         SET scheduling_status='alternative_slots_proposed',
+             scheduling_status_updated_at=NOW()
+         WHERE id=$1`,
+        [requestId]
+      );
+
+      await createAuditLog({
+        actorUserId: req.user.id,
+        action: "ALTERNATE_SESSION_SLOTS_PROPOSED",
+        entityType: "session_slot_proposal",
+        entityId: proposalResult.rows[0].id,
+        requestId,
+        newValues: { optionCount: options.length },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        dbClient: client,
+      });
+
+      await client.query("COMMIT");
+
+      const request = requestResult.rows[0];
+      await notifyUser({
+        userId: request.user_id,
+        userEmail: request.user_email,
+        requestId,
+        notificationType: "session_alternatives_proposed",
+        title: "Your counsellor proposed alternate session times",
+        message: `Review proposed session options for ${request.request_number}.`,
+        actionUrl: `/app/workspace?requestId=${requestId}`,
+        emailSubject: `Session options proposed: ${request.request_number}`,
+        emailText: `Hello ${request.user_full_name},\n\nYour counsellor proposed alternate session options. Log in to CareerConnect to choose one.`,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Alternate session options sent to the user.",
+        schedulingStatus: "alternative_slots_proposed",
+        proposal: mapProposal(proposalResult.rows[0], options),
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  })
+);
 
 module.exports = router;

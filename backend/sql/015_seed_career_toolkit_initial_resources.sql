@@ -2,8 +2,8 @@ BEGIN;
 
 DO $$
 BEGIN
-  IF current_database() <> 'careerconnect_qa' THEN
-    RAISE EXCEPTION 'Refusing to seed Toolkit content into database %. Expected careerconnect_qa.', current_database();
+  IF current_database() NOT IN ('careerconnect_qa', 'career_support') THEN
+    RAISE EXCEPTION 'Refusing to seed Toolkit content into database %. Expected careerconnect_qa or career_support.', current_database();
   END IF;
 END $$;
 
