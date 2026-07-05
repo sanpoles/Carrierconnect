@@ -15,6 +15,7 @@ test-results
 playwright-report
 .qa-runtime-logs/
 backend/storage/
+backend/.qa-runtime-storage/
 qa/e2e/storage-states/*.json
 !qa/e2e/storage-states/.gitkeep
 

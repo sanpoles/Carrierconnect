@@ -44,6 +44,26 @@ function docxBuffer() {
   return Buffer.from('PK\u0003\u0004QA-only DOCX validation content')
 }
 
+function preferredSlots() {
+  const firstStart = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const secondStart = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000)
+  const firstEnd = new Date(firstStart.getTime() + 60 * 60 * 1000)
+  const secondEnd = new Date(secondStart.getTime() + 60 * 60 * 1000)
+
+  return [
+    {
+      scheduledStartAt: firstStart.toISOString(),
+      scheduledEndAt: firstEnd.toISOString(),
+      timezone: 'Asia/Kolkata',
+    },
+    {
+      scheduledStartAt: secondStart.toISOString(),
+      scheduledEndAt: secondEnd.toISOString(),
+      timezone: 'Asia/Kolkata',
+    },
+  ]
+}
+
 async function addCompleteCareerProfile(pool: any, userId: string) {
   await pool.query(
     `INSERT INTO user_career_profiles(
@@ -217,6 +237,7 @@ test('resume replacement keeps exactly one current private resume and preserves 
         requestType: 'mock_interview',
         title: 'QA current resume request',
         description: 'QA-only request should use the current replacement resume.',
+        preferredSlots: preferredSlots(),
       },
     })
     expect(createdRequest.status()).toBe(201)
