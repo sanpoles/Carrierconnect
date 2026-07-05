@@ -476,3 +476,67 @@
     max-height: 300px !important;
   }
 }
+
+.workspace-slot-proposals {
+  margin: 0 0 18px;
+  padding: 18px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.workspace-slot-proposals > p {
+  margin: 10px 0 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.workspace-proposed-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.workspace-proposed-slot-grid button {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #102a56;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-proposed-slot-grid button:hover:not(:disabled) {
+  border-color: #2563eb;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+}
+
+.workspace-proposed-slot-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.workspace-proposed-slot-grid span,
+.workspace-proposed-slot-grid small {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.workspace-proposed-slot-grid em {
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .workspace-proposed-slot-grid {
+    grid-template-columns: 1fr;
+  }
+}

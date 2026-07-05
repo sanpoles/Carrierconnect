@@ -39,6 +39,10 @@ type RequestFormState = {
   skills: string
   preferredDate: string
   preferredTimeSlot: string
+  preferredSlotOne: string
+  preferredSlotTwo: string
+  preferredSlotThree: string
+  timezone: string
   description: string
 }
 
@@ -50,6 +54,10 @@ const initialRequestForm: RequestFormState = {
   skills: '',
   preferredDate: '',
   preferredTimeSlot: '',
+  preferredSlotOne: '',
+  preferredSlotTwo: '',
+  preferredSlotThree: '',
+  timezone: 'Asia/Kolkata',
   description: '',
 }
 
@@ -238,6 +246,40 @@ function UserPortal({ page }: UserPortalProps) {
     setErrorMessage('')
   }
 
+  function getPreferredSlotsForSubmission() {
+    const values = [
+      requestForm.preferredSlotOne,
+      requestForm.preferredSlotTwo,
+      requestForm.preferredSlotThree,
+    ]
+      .map((value) => value.trim())
+      .filter(Boolean)
+
+    if (values.length < 2) {
+      throw new Error('Add at least two preferred date and time options.')
+    }
+
+    const uniqueValues = new Set(values)
+    if (uniqueValues.size !== values.length) {
+      throw new Error('Preferred date and time options cannot be duplicates.')
+    }
+
+    const now = Date.now()
+    return values.map((value) => {
+      const start = new Date(value)
+      if (Number.isNaN(start.getTime()) || start.getTime() <= now) {
+        throw new Error('Preferred date and time options must be in the future.')
+      }
+
+      const end = new Date(start.getTime() + 60 * 60 * 1000)
+      return {
+        scheduledStartAt: start.toISOString(),
+        scheduledEndAt: end.toISOString(),
+        timezone: requestForm.timezone || 'Asia/Kolkata',
+      }
+    })
+  }
+
   async function handleSubmitRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -289,6 +331,23 @@ function UserPortal({ page }: UserPortalProps) {
       }
     }
 
+    let preferredSlots: Array<{
+      scheduledStartAt: string
+      scheduledEndAt: string
+      timezone: string
+    }>
+
+    try {
+      preferredSlots = getPreferredSlotsForSubmission()
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Add at least two valid preferred date and time options.',
+      )
+      return
+    }
+
     setErrorMessage('')
     setSuccessMessage('')
     setIsSubmittingRequest(true)
@@ -335,7 +394,8 @@ function UserPortal({ page }: UserPortalProps) {
         skills,
         preferredDate: requestForm.preferredDate || undefined,
         preferredTimeSlot: requestForm.preferredTimeSlot || undefined,
-        timezone: 'Asia/Kolkata',
+        timezone: requestForm.timezone || 'Asia/Kolkata',
+        preferredSlots,
         serviceContact: serviceContactPayload,
         additionalDetails: {
           submittedFrom: 'CareerConnect user portal',
@@ -729,32 +789,54 @@ function UserPortal({ page }: UserPortalProps) {
                   </label>
 
                   <label>
-                    Preferred date
+                    Preferred option 1
                     <input
-                      type="date"
-                      value={requestForm.preferredDate}
+                      required
+                      type="datetime-local"
+                      value={requestForm.preferredSlotOne}
                       onChange={(event) =>
-                        updateRequestForm('preferredDate', event.target.value)
+                        updateRequestForm('preferredSlotOne', event.target.value)
                       }
                     />
                   </label>
 
                   <label>
-                    Preferred time
-                    <select
-                      value={requestForm.preferredTimeSlot}
+                    Preferred option 2
+                    <input
+                      required
+                      type="datetime-local"
+                      value={requestForm.preferredSlotTwo}
                       onChange={(event) =>
-                        updateRequestForm(
-                          'preferredTimeSlot',
-                          event.target.value,
-                        )
+                        updateRequestForm('preferredSlotTwo', event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Preferred option 3
+                    <input
+                      type="datetime-local"
+                      value={requestForm.preferredSlotThree}
+                      onChange={(event) =>
+                        updateRequestForm('preferredSlotThree', event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Timezone
+                    <select
+                      value={requestForm.timezone}
+                      onChange={(event) =>
+                        updateRequestForm('timezone', event.target.value)
                       }
                     >
-                      <option value="">No preference</option>
-                      <option value="Morning">Morning</option>
-                      <option value="Afternoon">Afternoon</option>
-                      <option value="Evening">Evening</option>
-                      <option value="Weekend">Weekend</option>
+                      <option value="Asia/Kolkata">Asia/Kolkata</option>
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">America/New_York</option>
+                      <option value="Europe/London">Europe/London</option>
+                      <option value="Asia/Dubai">Asia/Dubai</option>
+                      <option value="Asia/Singapore">Asia/Singapore</option>
                     </select>
                   </label>
                 </div>

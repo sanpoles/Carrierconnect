@@ -10,10 +10,12 @@ import UserBookingPanel from './UserBookingPanel'
 import {
   messageApi,
   notificationApi,
+  requestApi,
   sessionApi,
   type CareerNotification,
   type CareerRequest,
   type CareerSession,
+  type SlotProposal,
   type RequestMessage,
 } from '../services/api'
 import { onRealtimeMessage } from '../services/realtime'
@@ -52,6 +54,22 @@ function getRequestName(requestType: CareerRequest['requestType']) {
     : 'Mock Interview'
 }
 
+function slotLabel(startAt?: string | null, endAt?: string | null) {
+  return `${formatDateTime(startAt)} - ${formatDateTime(endAt)}`
+}
+
+function latestProposedSlots(request: CareerRequest | null): SlotProposal | null {
+  if (!request?.slotProposals?.length) {
+    return null
+  }
+
+  const proposals = request.slotProposals.filter(
+    (proposal) => proposal.status === 'proposed',
+  )
+
+  return proposals[proposals.length - 1] || null
+}
+
 function UserWorkspace({
   requests,
   selectedRequestId,
@@ -70,6 +88,8 @@ function UserWorkspace({
   const [workspaceError, setWorkspaceError] = useState('')
   const [workspaceSuccess, setWorkspaceSuccess] = useState('')
   const [showNotifications, setShowNotifications] = useState(false)
+  const [selectingSlotId, setSelectingSlotId] = useState('')
+  const [confirmedProposalId, setConfirmedProposalId] = useState('')
 
   const messageListRef = useRef<HTMLDivElement>(null)
 
@@ -81,6 +101,14 @@ function UserWorkspace({
   const latestMessageId = useMemo(() => {
     return messages.length > 0 ? messages[messages.length - 1].id : ''
   }, [messages])
+
+  const proposedSlots = useMemo(
+    () => {
+      const proposal = latestProposedSlots(selectedRequest)
+      return proposal?.id === confirmedProposalId ? null : proposal
+    },
+    [confirmedProposalId, selectedRequest],
+  )
 
   useEffect(() => {
     async function loadNotifications() {
@@ -138,6 +166,7 @@ function UserWorkspace({
 
       setWorkspaceError('')
       setWorkspaceSuccess('')
+      setConfirmedProposalId('')
       setIsLoadingDetails(true)
 
       try {
@@ -253,6 +282,33 @@ function UserWorkspace({
       )
     } finally {
       setIsSendingMessage(false)
+    }
+  }
+
+  async function handleSelectProposalOption(proposalId: string, optionId: string) {
+    if (!selectedRequestId) {
+      return
+    }
+
+    setWorkspaceError('')
+    setWorkspaceSuccess('')
+    setSelectingSlotId(optionId)
+
+    try {
+      await requestApi.selectProposalOption(selectedRequestId, proposalId, optionId)
+      const sessionResponse = await sessionApi.getRequestSessions(selectedRequestId)
+
+      setSessions(sessionResponse.sessions)
+      setConfirmedProposalId(proposalId)
+      setWorkspaceSuccess('Your session time has been confirmed.')
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to confirm this session time.',
+      )
+    } finally {
+      setSelectingSlotId('')
     }
   }
 
@@ -499,6 +555,48 @@ function UserWorkspace({
 
                 {selectedRequest.assignedCounsellor && (
                   <UserBookingPanel requestId={selectedRequest.id} onBooked={() => { void Promise.all([messageApi.getMessages(selectedRequest.id), sessionApi.getRequestSessions(selectedRequest.id)]).then(([m,s]) => { setMessages(m.messages); setSessions(s.sessions) }) }} />
+                )}
+
+                {proposedSlots && (
+                  <section className="workspace-slot-proposals">
+                    <div className="workspace-section-title">
+                      <div>
+                        <p>COUNSELLOR PROPOSED TIMES</p>
+                        <h4>Choose a session option</h4>
+                      </div>
+                    </div>
+
+                    {proposedSlots.message && <p>{proposedSlots.message}</p>}
+
+                    <div className="workspace-proposed-slot-grid">
+                      {proposedSlots.options.map((option) => (
+                        <button
+                          key={option.id || option.scheduledStartAt}
+                          type="button"
+                          disabled={Boolean(selectingSlotId) || !option.id}
+                          onClick={() =>
+                            option.id
+                              ? void handleSelectProposalOption(
+                                  proposedSlots.id,
+                                  option.id,
+                                )
+                              : undefined
+                          }
+                        >
+                          <strong>Option {option.displayOrder}</strong>
+                          <span>
+                            {slotLabel(option.scheduledStartAt, option.scheduledEndAt)}
+                          </span>
+                          <small>{option.timezone}</small>
+                          <em>
+                            {selectingSlotId === option.id
+                              ? 'Confirming...'
+                              : 'Select this time'}
+                          </em>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
                 )}
 
                 {isLoadingDetails ? (

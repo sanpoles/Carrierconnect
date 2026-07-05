@@ -31,6 +31,9 @@ export type CareerRequest = {
   title: string; description: string; industry?: string | null; currentJobTitle?: string | null
   yearsOfExperience?: number | null; targetRole?: string | null; skills?: string[]
   preferredDate?: string | null; preferredTimeSlot?: string | null; timezone?: string | null
+  preferredSlots?: SchedulingSlot[]
+  slotProposals?: SlotProposal[]
+  schedulingStatus?: SchedulingStatus
   resumeDocument?: ResumeDocument | null
   submittedAt?: string | null; assignedAt?: string | null; completedAt?: string | null; cancelledAt?: string | null
   cancellationReason?: string | null; deliveryState?: DeliveryState; createdAt: string; updatedAt?: string
@@ -47,6 +50,9 @@ export type Pagination = { page: number; pageSize: number; totalItems: number; t
 export type AdminDashboardStats = { totalUsers: number; activeCounsellors: number; totalRequests: number; unassignedRequests: number; activeRequests: number; completedRequests: number; upcomingSessions: number; awaitingEntitlementApproval?: number; readyToStartRequests?: number; exhaustedEntitlements?: number }
 export type CounsellorDashboardStats = { needsAttention: number; readyForCounsellor: number; activeEngagements: number; waitingForApproval: number; sessionsToday: number; upcomingThisWeek: number }
 export type EntitlementAdjustment = { id: string; adjustmentType: string; source: string; sessionsDelta: number; reason?: string | null; paymentProvider?: string | null; paymentReferenceId?: string | null; metadata?: Record<string, unknown>; createdAt: string; createdByName?: string | null; sessionTitle?: string | null }
+export type SchedulingStatus = 'requested_preferences' | 'counsellor_review' | 'alternative_slots_proposed' | 'user_slot_selected' | 'confirmed'
+export type SchedulingSlot = { id?: string; scheduledStartAt: string; scheduledEndAt: string; timezone: string; displayOrder?: number; status?: string; source?: 'user_preference' | 'counsellor_alternative' }
+export type SlotProposal = { id: string; requestId: string; counsellorId: string; message?: string | null; status: 'proposed' | 'selected' | 'confirmed' | 'cancelled' | 'expired'; selectedOptionId?: string | null; createdAt: string; updatedAt: string; options: SchedulingSlot[] }
 
 type ApiErrorResponse = { success?: boolean; message?: string; errors?: Array<{ field: string; message: string }> }
 
@@ -93,7 +99,9 @@ export const authApi = {
 }
 export const requestApi = {
   getMyRequests: () => apiRequest<{ success: boolean; count: number; requests: CareerRequest[] }>('/requests/my'),
-  createRequest: (payload: { requestType: 'career_counselling' | 'mock_interview'; title: string; description: string; industry?: string; currentJobTitle?: string; yearsOfExperience?: number; targetRole?: string; skills?: string[]; preferredDate?: string; preferredTimeSlot?: string; timezone?: string; serviceContact?: { phoneCountryCode: string; phoneNumber: string; serviceCommunicationConsent: true }; additionalDetails?: Record<string, unknown> }) => apiRequest<{ success: boolean; message: string; request: CareerRequest }>('/requests', { method: 'POST', body: JSON.stringify(payload) }),
+  createRequest: (payload: { requestType: 'career_counselling' | 'mock_interview'; title: string; description: string; industry?: string; currentJobTitle?: string; yearsOfExperience?: number; targetRole?: string; skills?: string[]; preferredDate?: string; preferredTimeSlot?: string; timezone?: string; preferredSlots?: Array<{ scheduledStartAt: string; scheduledEndAt: string; timezone: string }>; serviceContact?: { phoneCountryCode: string; phoneNumber: string; serviceCommunicationConsent: true }; additionalDetails?: Record<string, unknown> }) => apiRequest<{ success: boolean; message: string; request: CareerRequest }>('/requests', { method: 'POST', body: JSON.stringify(payload) }),
+  getScheduling: (requestId: string) => apiRequest<{ success: boolean; requestId: string; schedulingStatus: SchedulingStatus; preferredSlots: SchedulingSlot[]; slotProposals: SlotProposal[] }>(`/requests/${requestId}/scheduling`),
+  selectProposalOption: (requestId: string, proposalId: string, optionId: string) => apiRequest<{ success: boolean; message: string; session: CareerSession; schedulingStatus: SchedulingStatus }>(`/requests/${requestId}/slot-proposals/${proposalId}/options/${optionId}/select`, { method: 'POST' }),
 }
 export const messageApi = {
   getMessages: (requestId: string) => apiRequest<{ success: boolean; count: number; messages: RequestMessage[]; deliveryState?: DeliveryState }>(`/requests/${requestId}/messages`),
@@ -123,6 +131,8 @@ export const counsellorApi = {
   getRequests: (filters: CounsellorRequestFilters = {}) => apiRequest<{ success: boolean; filters: CounsellorRequestFilters; pagination: Pagination; requests: CareerRequest[] }>(`/counsellor/requests${toQueryString(filters)}`),
   getRequest: (id: string) => apiRequest<{ success: boolean; request: CareerRequest }>(`/counsellor/requests/${id}`),
   getPreparation: (id: string) => apiRequest<{ success:boolean; profile:CareerProfile; resume:ResumeDocument|null }>(`/counsellor/requests/${id}/preparation`),
+  acceptPreferredSlot: (requestId: string, slotId: string, payload: { meetingProvider: string; meetingLink?: string }) => apiRequest<{ success: boolean; message: string; session: CareerSession; schedulingStatus: SchedulingStatus }>(`/counsellor/requests/${requestId}/preferred-slots/${slotId}/accept`, { method: 'POST', body: JSON.stringify(payload) }),
+  proposeAlternateSlots: (requestId: string, payload: { message?: string; slots: Array<{ scheduledStartAt: string; scheduledEndAt: string; timezone: string }> }) => apiRequest<{ success: boolean; message: string; proposal: SlotProposal; schedulingStatus: SchedulingStatus }>(`/counsellor/requests/${requestId}/slot-proposals`, { method: 'POST', body: JSON.stringify(payload) }),
 }
 export const organizationInquiryApi = {
   create: (payload: { organizationName: string; contactName: string; workEmail: string; phone?: string; countryOrRegion?: string; organizationSize?: string; supportArea: 'hiring_talent_support' | 'leadership_development' | 'career_internal_mobility' | 'custom_workforce_program' | 'not_sure_yet'; targetAudience?: string; expectedScope?: string; desiredTimeline?: string; currentChallenge: string; successOutcome?: string; preferredDiscussionTime?: string; contactPreference: 'email' | 'phone' | 'either' }) => apiRequest<{ success: boolean; message: string; inquiry: { id: string; status: string; createdAt: string } }>('/organization-inquiries', { method: 'POST', body: JSON.stringify(payload) }),
