@@ -90,6 +90,26 @@ async function apiFormRequest<T>(path: string, formData: FormData, options: Requ
   if (!response.ok) { const data = responseData as ApiErrorResponse | null; throw new Error(data?.message || 'Something went wrong. Please try again.') }
   return responseData as T
 }
+
+async function apiBlobRequest(path: string): Promise<{ blob: Blob; fileName: string }> {
+  const token = getToken()
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as ApiErrorResponse | null
+    throw new Error(data?.message || 'Unable to download this file.')
+  }
+
+  const disposition = response.headers.get('content-disposition') || ''
+  const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i)
+
+  return {
+    blob: await response.blob(),
+    fileName: fileNameMatch?.[1] || 'resume',
+  }
+}
 export const authApi = {
   register: (payload: { fullName: string; email: string; password: string; phone?: string }) => apiRequest<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload: { email: string; password: string }) => apiRequest<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
@@ -170,6 +190,7 @@ export const careerProfileApi = {
   uploadResume: (file: File) => { const form=new FormData(); form.append('resume',file); return apiFormRequest<{success:boolean;message:string;resume:ResumeDocument}>('/me/career-profile/resume',form,{method:'POST'}) },
   saveServiceContact: (payload:{phoneCountryCode:string;phoneNumber:string;serviceCommunicationConsent:true}) => apiRequest<{success:boolean;message:string;contact:ServiceContact}>('/me/service-contact',{method:'PUT',body:JSON.stringify(payload)}),
   downloadUrl: (resumeId:string) => `${API_BASE_URL}/resumes/${resumeId}/download`,
+  downloadResume: (resumeId:string) => apiBlobRequest(`/resumes/${resumeId}/download`),
 }
 export const availabilityApi = {
   get: () => apiRequest<{success:boolean;availability:CounsellorAvailability}>('/counsellor/availability'),

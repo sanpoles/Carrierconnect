@@ -122,6 +122,11 @@ function mapContact(row) {
   };
 }
 
+function safeDownloadFileName(fileName) {
+  const baseName = path.basename(fileName || "resume");
+  return baseName.replace(/["\r\n]/g, "_") || "resume";
+}
+
 async function validateResumeFile(file) {
   const extension = path.extname(file.originalname).slice(1).toLowerCase();
   const expectedExtension = allowedExtensionsByMime[file.mimetype];
@@ -505,7 +510,27 @@ router.get(
       userAgent: req.get("user-agent"),
     });
 
-    res.download(filePath, document.original_file_name);
+    res.setHeader(
+      "Content-Type",
+      document.mime_type || "application/octet-stream"
+    );
+    res.setHeader("Content-Length", document.size_bytes);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeDownloadFileName(document.original_file_name)}"`
+    );
+
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", (error) => {
+      if (!res.headersSent) {
+        return res
+          .status(500)
+          .json({ success: false, message: "Unable to stream resume file." });
+      }
+
+      return res.destroy(error);
+    });
+    stream.pipe(res);
   })
 );
 
